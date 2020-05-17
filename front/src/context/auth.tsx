@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useState, useEffect } from 'react'
 
-import api from '../services/api'
+import api, { cancelToken } from '../services/api'
 
 interface User {
   name: string,
@@ -13,7 +13,7 @@ interface AuthState {
 
 interface AuthContextData {
   user: User
-  signIn(name: string): Promise<void>
+  signIn(name: string, cancel: AbortSignal): Promise<boolean>
   signOut(): void
 }
 
@@ -54,8 +54,10 @@ export const AuthProvider: React.FC = ({ children }) => {
     }
   }, [])
 
-  const signIn = useCallback(async (name: string) => {
-    const response = await api.post('sessions', { name })
+  const signIn = useCallback(async (name: string, cancel: AbortSignal) => {
+    const response = await api.post('sessions', { name }, {
+      cancelToken: cancelToken(cancel)
+    })
 
     const user = response.data as User
 
@@ -64,6 +66,8 @@ export const AuthProvider: React.FC = ({ children }) => {
     api.defaults.headers.Authorization = user.name
 
     setData({ user })
+
+    return true
   }, [])
 
   const signOut = useCallback(() => {

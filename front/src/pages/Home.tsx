@@ -1,6 +1,7 @@
-import React, { FormEvent, useCallback, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 
-import { useHistory, Link } from 'react-router-dom'
+import { AsyncOptions, useAsync } from 'react-async'
+import { Link, useHistory } from 'react-router-dom'
 
 import { useAuth } from '../context/auth'
 import { ApiError } from '../services/api'
@@ -13,27 +14,39 @@ const Home: React.FC = () => {
 
   const history = useHistory()
 
-  const handleSubmit = useCallback(
-    async (e: FormEvent<HTMLFormElement>): Promise<void> => {
-      e.preventDefault()
-      setError('')
-
-      try {
-        await signIn(name)
-
-        history.push('/dashboard')
-      } catch(err) {
-        if (err.message === 'Network Error') {
-          setError('Network Error')
-        } else {
-          const { response } = err as ApiError
-
-          setError(response?.data.error || 'Login error')
-        }
-      }
+  const request = useCallback(
+    async ([name]: string[], props: any, options: AsyncOptions<{}>) => {
+      return signIn(name, options.signal)
     },
-    [history, name, signIn]
+    [signIn]
   )
+
+  const { data: success, error: failure, run: attemptLogin } = useAsync({
+    deferFn: request
+  })
+
+  const handleSubmit = useCallback(e => {
+    e.preventDefault()
+    attemptLogin(name)
+  }, [attemptLogin, name])
+
+  useEffect(() => {
+    if (success) {
+      history.push('/dashboard')
+    }
+  }, [history, success])
+
+  useEffect(() => {
+    if (failure) {
+      if (failure.message === 'Network Error') {
+        setError('Network Error')
+      } else {
+        const { response } = failure as ApiError
+
+        setError(response?.data.error || 'Login error')
+      }
+    }
+  }, [failure])
 
   return (
     <>

@@ -1,9 +1,10 @@
-import React, { SyntheticEvent, useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 
+import { AsyncOptions, useAsync } from 'react-async'
 import { Link, Redirect } from 'react-router-dom'
 
 import { useAuth } from '../context/auth'
-import api, { ApiError } from '../services/api'
+import api, { ApiError, cancelToken } from '../services/api'
 
 interface User {
   id: string
@@ -15,70 +16,89 @@ function canAdminUsers(user: Omit<User, 'id' | 'name'>) {
   return user.role === 'admin'
 }
 
+const getUsersRequest = async(
+  data: any[],
+  props: any,
+  options: AsyncOptions<{}>
+) => {
+  const response = await api.get<User[]>('users', {
+    cancelToken: cancelToken(options.signal)
+  })
+  return response.data
+}
+
+const setUserRoleRequest = async (
+  [name, role]: string[],
+  props: any,
+  options: AsyncOptions<{}>
+) => {
+  const response = await api.put<User>(`users/${name}`, { role }, {
+    cancelToken: cancelToken(options.signal)
+  })
+  return response.data
+}
+
 const UsersDashboard: React.FC = () => {
-  const [users, setUsers] = useState<User[]>([])
   const [error, setError] = useState('')
   
   const { user, signOut } = useAuth()
 
+  const {
+    data: users,
+    error: failureGetUsers,
+    run: getUsers,
+  } = useAsync({ deferFn: getUsersRequest, initialValue: [] })
+
   useEffect(() => {
-    if (user) {
-      if (canAdminUsers(user)) {
-        api.get<User[]>('users').then(response => {
-          setUsers(response.data.filter(u => u.name !== user.name))
-        }).catch(err => {
-          if (err.message === 'Network Error') {
-            setError('Network Error')
-          } else {
-            const { response } = err as ApiError
-  
-            setError(response?.data.error || 'Request error')
-          }
-        })
+    if (user && canAdminUsers(user)) {
+      getUsers()
+    }
+  }, [getUsers, user])
+
+  const handleReloadUsers = useCallback(e => {
+    e.preventDefault()
+    getUsers()
+  }, [getUsers])
+
+  const {
+    data: successUpdatedUser,
+    error: failureUpdateUser,
+    run: setUserRole
+  } = useAsync({ deferFn: setUserRoleRequest })
+
+  const handleChangeUserRole = useCallback((name: string, role: string) => {
+    setUserRole(name, role)
+  }, [setUserRole])
+
+  useEffect(() => {
+    if (successUpdatedUser) {
+      getUsers()
+    }
+  }, [successUpdatedUser, getUsers])
+
+  useEffect(() => {
+    if (failureGetUsers) {
+      if (failureGetUsers.message === 'Network Error') {
+        setError('Network Error')
+      } else {
+        const { response } = failureGetUsers as ApiError
+
+        setError(response?.data.error || 'Request error')
       }
     }
-  }, [user])
+  }, [failureGetUsers])
 
-  const handleChangeUserRole = useCallback(
-    async (name: string, role: string): Promise<void> => {
-      try {
-        const response = await api.put<User>(`users/${name}`, { role })
-        const user = response.data
+  useEffect(() => {
+    if (failureUpdateUser) {
+      if (failureUpdateUser.message === 'Network Error') {
+        setError('Network Error')
+      } else {
+        const { response } = failureUpdateUser as ApiError
 
-        setUsers(users => users.map(u => u.id === user.id ? user : u))
-      } catch (err) {
-        if (err.message === 'Network Error') {
-          setError('Network Error')
-        } else {
-          const { response } = err as ApiError
-
-          setError(response?.data.error || 'Request error')
-        }
+        setError(response?.data.error || 'Request error')
       }
-    },
-    []
-  )
-
-  const handleReloadUsers = useCallback(
-    async (e: SyntheticEvent<HTMLButtonElement>): Promise<void> => {
-      e.preventDefault()
-
-      try {
-        const response = await api.get<User[]>('users')
-
-        setUsers(response.data.filter(u => u.name !== user.name))
-      } catch (err) {
-        if (err.message === 'Network Error') {
-          setError('Network Error')
-        } else {
-          const { response } = err as ApiError
-
-          setError(response?.data.error || 'Request error')
-        }
-      }
-    },
-    [user]
-  )
+    }
+  }, [failureUpdateUser])
 
   if (!user) {
     return <Redirect to="/" />
@@ -99,7 +119,7 @@ const UsersDashboard: React.FC = () => {
       )}
       <Link to='/dashboard'>&lt; Dashboard</Link>
       <br />
-      {users.map(user => (
+      {users?.filter(u => u.name !== user.name).map(user => (
         <div  key={user.id}>
           <p>{user.name}: {user.role}</p>
           <select
@@ -112,7 +132,7 @@ const UsersDashboard: React.FC = () => {
         </div>
       ))}
       <br />
-      <button onClick={handleReloadUsers}>Fetch Users</button>
+      <button onClick={handleReloadUsers}>Sync Users</button>
       <br />
       <br />
       <br />

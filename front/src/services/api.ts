@@ -56,4 +56,10 @@ createAuthRefreshInterceptor(
   }
 )
 
+export const cancelToken = (cancel: AbortSignal) => {
+  return new axios.CancelToken(interrupt => {
+    cancel.addEventListener('abort', (e) => { interrupt(JSON.stringify(e)) })
+  })
+}
+
 export default api

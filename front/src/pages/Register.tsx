@@ -1,8 +1,19 @@
-import React, { FormEvent, useCallback, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 
-import { useHistory, Link } from 'react-router-dom'
+import { AsyncOptions, useAsync } from 'react-async'
+import { Link, useHistory } from 'react-router-dom'
 
-import api, { ApiError } from '../services/api'
+import api, { ApiError, cancelToken } from '../services/api'
+
+const request = async(
+  [name]: string[],
+  props: any,
+  options: AsyncOptions<{}>
+) => {
+  return api.post('users', { name }, {
+    cancelToken: cancelToken(options.signal)
+  })
+}
 
 const Register: React.FC = () => {
   const [name, setName] = useState('')
@@ -10,27 +21,32 @@ const Register: React.FC = () => {
 
   const history = useHistory()
 
-  const handleSubmit = useCallback(
-    async (e: FormEvent<HTMLFormElement>): Promise<void> => {
-      e.preventDefault()
-      setError('')
+  const { data: success, error: failure, run: registerUser } = useAsync({
+    deferFn: request
+  })
 
-      try {
-        await api.post('users', { name })
+  const handleSubmit = useCallback(e => {
+    e.preventDefault()
+    registerUser(name)
+  }, [name, registerUser])
 
-        history.push('/')
-      } catch (err) {
-        if (err.message === 'Network Error') {
-          setError('Network Error')
-        } else {
-          const { response } = err as ApiError
+  useEffect(() => {
+    if (success) {
+      history.push('/')
+    }
+  }, [history, success])
 
-          setError(response?.data.error || 'Registration error')
-        }
+  useEffect(() => {
+    if (failure) {
+      if (failure.message === 'Network Error') {
+        setError('Network Error')
+      } else {
+        const { response } = failure as ApiError
+
+        setError(response?.data.error || 'Registration error')
       }
-    },
-    [history, name]
-  )
+    }
+  }, [failure])
 
   return (
     <>

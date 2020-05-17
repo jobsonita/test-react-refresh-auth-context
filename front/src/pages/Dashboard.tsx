@@ -1,12 +1,17 @@
-import React, { FormEvent, useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 
+import { Async, AsyncOptions, useAsync } from 'react-async'
 import { Link, Redirect } from 'react-router-dom'
 
 import { useAuth } from '../context/auth'
-import api, { ApiError } from '../services/api'
+import api, { ApiError, cancelToken } from '../services/api'
 
 interface User {
   role: string
+}
+
+interface WelcomeMessage {
+  message: string
 }
 
 function capitalize(word: string) {
@@ -21,48 +26,52 @@ function canAdminUsers(user: User) {
   return user.role === 'admin'
 }
 
+const getWelcomeMessageRequest = async(
+  data: any,
+  options: AsyncOptions<{}>
+) => {
+  const response = await api.get<WelcomeMessage>('welcome', {
+    cancelToken: cancelToken(options.signal)
+  })
+  return response.data.message
+}
+
+const addMessageRequest = async(
+  [message]: string[],
+  props: any,
+  options: AsyncOptions<{}>
+) => {
+  return api.post('messages', { message }, {
+    cancelToken: cancelToken(options.signal)
+  })
+}
+
 const Dashboard: React.FC = () => {
-  const [welcomeMessage, setWelcomeMessage] = useState('')
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   
   const { user, signOut } = useAuth()
 
+  const { data: success, error: failure, run: addMessage } = useAsync({
+    deferFn: addMessageRequest
+  })
+
+  const handleAddMessage = useCallback(e => {
+    e.preventDefault()
+    addMessage(message)
+  }, [addMessage, message])
+
   useEffect(() => {
-    if (user) {
-      api.get<{ message: string }>('welcome').then(response => {
-        setWelcomeMessage(response.data.message)
-      }).catch(err => {
-        if (err.message === 'Network Error') {
-          setError('Network Error')
-        } else {
-          const { response } = err as ApiError
+    if (failure) {
+      if (failure.message === 'Network Error') {
+        setError('Network Error')
+      } else {
+        const { response } = failure as ApiError
 
-          setError(response?.data.error || 'Login error')
-        }
-      })
-    }
-  }, [user])
-
-  const handleAddMessage = useCallback(
-    async (e: FormEvent<HTMLFormElement>): Promise<void> => {
-      e.preventDefault()
-      setError('')
-
-      try {
-        await api.post('messages', { message })
-      } catch (err) {
-        if (err.message === 'Network Error') {
-          setError('Network Error')
-        } else {
-          const { response } = err as ApiError
-
-          setError(response?.data.error || 'Request error')
-        }
+        setError(response?.data.error || 'Registration error')
       }
-    },
-    [message]
-  )
+    }
+  }, [failure])
 
   if (!user) {
     return <Redirect to="/" />
@@ -71,13 +80,14 @@ const Dashboard: React.FC = () => {
   return (
     <>
       <h1>{capitalize(user.role)} Dashboard</h1>
-      <h2>{welcomeMessage}</h2>
-      {error && (
-        <>
-          <span>{error}</span>
-          <br />
-        </>
-      )}
+      <Async promiseFn={getWelcomeMessageRequest}>
+        <Async.Fulfilled>
+          {(welcomeMessage: string) => <h2>{welcomeMessage}</h2>}
+        </Async.Fulfilled>
+        <Async.Rejected>
+          {(error: string) => <span>Request failed</span>}
+        </Async.Rejected>
+      </Async>
       {canListMessages(user) && (
         <>
           <Link to='/messages'>Messages Dashboard &gt;</Link>
@@ -103,6 +113,19 @@ const Dashboard: React.FC = () => {
         <br />
         <br />
         <button type="submit">Send message</button>
+        <br />
+        {success && (
+          <>
+            <span>Message sent</span>
+            <br />
+          </>
+        )}
+        {error && (
+          <>
+            <span>{error}</span>
+            <br />
+          </>
+        )}
       </form>
       <br />
       <br />
