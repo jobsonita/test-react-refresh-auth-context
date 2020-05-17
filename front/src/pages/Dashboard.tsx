@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useState } from 'react'
 import { Async, AsyncOptions, useAsync } from 'react-async'
 import { Link, Redirect } from 'react-router-dom'
 
-import { ApiError, cancelToken, useApi } from '../context/api'
+import api, { ApiError, cancelToken } from '../context/api'
 import { useAuth } from '../context/auth'
 
 interface User {
@@ -30,32 +30,31 @@ function canAdminUsers(user: User) {
   return user.role === 'admin'
 }
 
+const getWelcomeMessageRequest = async (
+  data: any,
+  options: AsyncOptions<{}>
+) => {
+  const response = await api.get<WelcomeMessage>('welcome', {
+    cancelToken: cancelToken(options.signal)
+  })
+  return response.data.message
+}
+
+const addMessageRequest = async (
+  [message]: string[],
+  props: any,
+  options: AsyncOptions<{}>
+) => {
+  return api.post('messages', { message }, {
+    cancelToken: cancelToken(options.signal)
+  })
+}
+
 const Dashboard: React.FC = () => {
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
-  
-  const { api } = useApi()
-  const { user, signOut } = useAuth()
 
-  const getWelcomeMessageRequest = useCallback(async (
-    data: any,
-    options: AsyncOptions<{}>
-  ) => {
-    const response = await api.get<WelcomeMessage>('welcome', {
-      cancelToken: cancelToken(options.signal)
-    })
-    return response.data.message
-  }, [api])
-  
-  const addMessageRequest = useCallback(async (
-    [message]: string[],
-    props: any,
-    options: AsyncOptions<{}>
-  ) => {
-    return api.post('messages', { message }, {
-      cancelToken: cancelToken(options.signal)
-    })
-  }, [api])
+  const { user, signOut } = useAuth()
 
   const { data: success, error: failure, run: addMessage } = useAsync({
     deferFn: addMessageRequest

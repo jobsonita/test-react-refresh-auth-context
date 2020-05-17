@@ -3,25 +3,23 @@ import React, { useCallback, useEffect, useState } from 'react'
 import { AsyncOptions, useAsync } from 'react-async'
 import { Link, useHistory } from 'react-router-dom'
 
-import { ApiError, cancelToken, useApi } from '../context/api'
+import api, { ApiError, cancelToken } from '../context/api'
+
+const request = async (
+  [name]: string[],
+  props: any,
+  options: AsyncOptions<{}>
+) => {
+  return api.post('users', { name }, {
+    cancelToken: cancelToken(options.signal)
+  })
+}
 
 const Register: React.FC = () => {
   const [name, setName] = useState('')
   const [error, setError] = useState('')
 
   const history = useHistory()
-
-  const { api } = useApi()
-
-  const request = useCallback(async (
-    [name]: string[],
-    props: any,
-    options: AsyncOptions<{}>
-  ) => {
-    return api.post('users', { name }, {
-      cancelToken: cancelToken(options.signal)
-    })
-  }, [api])
 
   const { data: success, error: failure, run: registerUser } = useAsync({
     deferFn: request

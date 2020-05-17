@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useState, useEffect } from 'react'
 
-import axios, { AxiosInstance, AxiosError } from 'axios'
+import axios, { AxiosError } from 'axios'
 import createAuthRefreshInterceptor from 'axios-auth-refresh'
 
 export type ApiError = AxiosError<{ error: string }>
@@ -26,7 +26,7 @@ const loadAuthorization = () => {
   return user?.name || ''
 }
 
-const api = axios.create({
+export const api = axios.create({
   baseURL: 'http://localhost:3333',
   headers: {
     Authorization: loadAuthorization()
@@ -34,7 +34,6 @@ const api = axios.create({
 })
 
 interface ApiContextData {
-  api: AxiosInstance
   token: string
   signIn(name: string, cancel: AbortSignal): Promise<boolean>
   signOut(): void
@@ -94,7 +93,7 @@ export const ApiProvider: React.FC = ({ children }) => {
   }, [])
 
   return (
-    <ApiContext.Provider value={{ api, token, signIn, signOut }}>
+    <ApiContext.Provider value={{ token, signIn, signOut }}>
       {children}
     </ApiContext.Provider>
   )
@@ -115,3 +114,5 @@ export const cancelToken = (cancel: AbortSignal) => {
     cancel.addEventListener('abort', (e) => { interrupt(JSON.stringify(e)) })
   })
 }
+
+export default api

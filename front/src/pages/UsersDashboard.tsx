@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useState } from 'react'
 import { AsyncOptions, useAsync } from 'react-async'
 import { Link, Redirect } from 'react-router-dom'
 
-import { ApiError, cancelToken, useApi } from '../context/api'
+import api, { ApiError, cancelToken } from '../context/api'
 import { useAuth } from '../context/auth'
 
 interface User {
@@ -12,37 +12,36 @@ interface User {
   role: string
 }
 
+const getUsersRequest = async (
+  data: any[],
+  props: any,
+  options: AsyncOptions<{}>
+) => {
+  const response = await api.get<User[]>('users', {
+    cancelToken: cancelToken(options.signal)
+  })
+  return response.data
+}
+
+const setUserRoleRequest = async (
+  [name, role]: string[],
+  props: any,
+  options: AsyncOptions<{}>
+) => {
+  const response = await api.put<User>(`users/${name}`, { role }, {
+    cancelToken: cancelToken(options.signal)
+  })
+  return response.data
+}
+
 function canAdminUsers(user: Omit<User, 'id' | 'name'>) {
   return user.role === 'admin'
 }
 
 const UsersDashboard: React.FC = () => {
   const [error, setError] = useState('')
-  
-  const { api } = useApi()
+
   const { user, signOut } = useAuth()
-
-  const getUsersRequest = useCallback(async (
-    data: any[],
-    props: any,
-    options: AsyncOptions<{}>
-  ) => {
-    const response = await api.get<User[]>('users', {
-      cancelToken: cancelToken(options.signal)
-    })
-    return response.data
-  }, [api])
-
-  const setUserRoleRequest = useCallback(async (
-    [name, role]: string[],
-    props: any,
-    options: AsyncOptions<{}>
-  ) => {
-    const response = await api.put<User>(`users/${name}`, { role }, {
-      cancelToken: cancelToken(options.signal)
-    })
-    return response.data
-  }, [api])
 
   const {
     data: users,
