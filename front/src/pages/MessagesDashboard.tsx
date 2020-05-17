@@ -3,8 +3,8 @@ import React, { useCallback, useEffect, useState } from 'react'
 import { AsyncOptions, useAsync } from 'react-async'
 import { Link, Redirect } from 'react-router-dom'
 
+import { ApiError, cancelToken, useApi } from '../context/api'
 import { useAuth } from '../context/auth'
-import api, { ApiError, cancelToken } from '../services/api'
 
 interface User {
   role: string
@@ -20,21 +20,22 @@ function canListMessages(user: User) {
   return user.role === 'admin' || user.role === 'superuser'
 }
 
-const getMessagesRequest = async(
-  data: any[],
-  props: any,
-  options: AsyncOptions<{}>
-) => {
-  const response = await api.get<Message[]>('messages', {
-    cancelToken: cancelToken(options.signal)
-  })
-  return response.data
-}
-
 const MessagesDashboard: React.FC = () => {
   const [error, setError] = useState('')
   
+  const { api } = useApi()
   const { user, signOut } = useAuth()
+
+  const getMessagesRequest = useCallback(async (
+    data: any[],
+    props: any,
+    options: AsyncOptions<{}>
+  ) => {
+    const response = await api.get<Message[]>('messages', {
+      cancelToken: cancelToken(options.signal)
+    })
+    return response.data
+  }, [api])
 
   const {
     data: messages,
@@ -65,7 +66,7 @@ const MessagesDashboard: React.FC = () => {
     }
   }, [failure])
 
-  if (!user) {
+  if (!user.name) {
     return <Redirect to="/" />
   }
 

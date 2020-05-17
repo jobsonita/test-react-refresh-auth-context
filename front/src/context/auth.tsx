@@ -1,14 +1,10 @@
-import React, { createContext, useCallback, useContext, useState, useEffect } from 'react'
+import React, { createContext, useContext, useMemo } from 'react'
 
-import api, { cancelToken } from '../services/api'
+import { useApi } from './api'
 
 interface User {
   name: string,
   role: string
-}
-
-interface AuthState {
-  user: User
 }
 
 interface AuthContextData {
@@ -17,69 +13,24 @@ interface AuthContextData {
   signOut(): void
 }
 
-interface AuthRefreshEventDetail {
-  user: User
-}
-
-type AuthRefreshEvent = CustomEvent<AuthRefreshEventDetail>
-
 const AuthContext = createContext<AuthContextData>({} as AuthContextData)
 
 export const AuthProvider: React.FC = ({ children }) => {
-  const [data, setData] = useState<AuthState>(() => {
-    const user = localStorage.getItem('@RefreshTest:user')
+  const { token, signIn, signOut } = useApi()
 
-    if (user) {
-      return { user: JSON.parse(user) }
+  const user = useMemo<User>(() => {
+    if (token) {
+      try {
+        return JSON.parse(token)
+      } catch(err) {
+        // noop
+      }
     }
-
-    return {} as AuthState
-  })
-
-  useEffect(() => {
-    const authRefreshHandler = ((event: AuthRefreshEvent) => {
-      const { user } = event.detail
-
-      localStorage.setItem('@RefreshTest:user', JSON.stringify(user))
-  
-      setData({ user })
-    }) as EventListener
-
-    const element = document.querySelector('#root')
-
-    element?.addEventListener('authRefresh', authRefreshHandler)
-
-    return () => {
-      element?.removeEventListener('authRefresh', authRefreshHandler)
-    }
-  }, [])
-
-  const signIn = useCallback(async (name: string, cancel: AbortSignal) => {
-    const response = await api.post('sessions', { name }, {
-      cancelToken: cancelToken(cancel)
-    })
-
-    const user = response.data as User
-
-    localStorage.setItem('@RefreshTest:user', JSON.stringify(user))
-
-    api.defaults.headers.Authorization = user.name
-
-    setData({ user })
-
-    return true
-  }, [])
-
-  const signOut = useCallback(() => {
-    localStorage.removeItem('@RefreshTest:user')
-
-    api.defaults.headers.Authorization = ''
-
-    setData({} as AuthState)
-  }, [])
+    return {}
+  }, [token])
 
   return (
-    <AuthContext.Provider value={{ user: data.user, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   )

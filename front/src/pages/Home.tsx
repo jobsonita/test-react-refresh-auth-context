@@ -3,8 +3,8 @@ import React, { useCallback, useEffect, useState } from 'react'
 import { AsyncOptions, useAsync } from 'react-async'
 import { Link, useHistory } from 'react-router-dom'
 
+import { ApiError } from '../context/api'
 import { useAuth } from '../context/auth'
-import { ApiError } from '../services/api'
 
 const Home: React.FC = () => {
   const [name, setName] = useState('')

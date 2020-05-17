@@ -1,7 +1,14 @@
 import React from 'react'
 
+import { ApiProvider } from './api'
 import { AuthProvider } from './auth'
 
 export const AppProvider: React.FC = ({ children }) => {
-  return <AuthProvider>{children}</AuthProvider>
+  return (
+    <ApiProvider>
+      <AuthProvider>
+        {children}
+      </AuthProvider>
+    </ApiProvider>
+  )
 }
