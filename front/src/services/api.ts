@@ -38,6 +38,8 @@ const refresh_session = async () => {
     const response = await api.put<User>('/sessions')
     const user = response.data
     // TODO: update context somehow
+    /* First attempt: brute force through localStorage - solves for F5 */
+    localStorage.setItem('@RefreshTest:user', JSON.stringify(user))
     return user.name
   }
 }
