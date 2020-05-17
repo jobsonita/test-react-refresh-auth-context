@@ -1,8 +1,14 @@
 import axios, { AxiosError } from 'axios'
 
+import createAuthRefreshInterceptor from 'axios-auth-refresh'
+
 export type ApiError = AxiosError<{
   error: string
 }>
+
+interface User {
+  name: string
+}
 
 const loadAuthorization = () => {
   const user = localStorage.getItem('@RefreshTest:user')
@@ -26,5 +32,22 @@ const api = axios.create({
     Authorization: loadAuthorization()
   }
 })
+
+const refresh_session = async () => {
+  if (api.defaults.headers.Authorization) {
+    const response = await api.put<User>('/sessions')
+    const user = response.data
+    // TODO: update context somehow
+    return user.name
+  }
+}
+
+createAuthRefreshInterceptor(
+  api,
+  async failedRequest => {
+    const name = await refresh_session()
+    failedRequest.response.config.headers.Authorization = name
+  }
+)
 
 export default api
