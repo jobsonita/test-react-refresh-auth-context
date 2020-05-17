@@ -10,6 +10,8 @@ interface User {
   name: string
 }
 
+const rootElement = document.querySelector('#root')
+
 const loadAuthorization = () => {
   const user = localStorage.getItem('@RefreshTest:user')
 
@@ -38,8 +40,10 @@ const refresh_session = async () => {
     const response = await api.put<User>('/sessions')
     const user = response.data
     // TODO: update context somehow
-    /* First attempt: brute force through localStorage - solves for F5 */
-    localStorage.setItem('@RefreshTest:user', JSON.stringify(user))
+    /* Second attempt: custom event - immediate refresh of context */
+    rootElement?.dispatchEvent(new CustomEvent('authRefresh', {
+      detail: { user }
+    }))
     return user.name
   }
 }

@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useState } from 'react'
+import React, { createContext, useCallback, useContext, useState, useEffect } from 'react'
 
 import api from '../services/api'
 
@@ -17,6 +17,12 @@ interface AuthContextData {
   signOut(): void
 }
 
+interface AuthRefreshEventDetail {
+  user: User
+}
+
+type AuthRefreshEvent = CustomEvent<AuthRefreshEventDetail>
+
 const AuthContext = createContext<AuthContextData>({} as AuthContextData)
 
 export const AuthProvider: React.FC = ({ children }) => {
@@ -29,6 +35,24 @@ export const AuthProvider: React.FC = ({ children }) => {
 
     return {} as AuthState
   })
+
+  useEffect(() => {
+    const authRefreshHandler = ((event: AuthRefreshEvent) => {
+      const { user } = event.detail
+
+      localStorage.setItem('@RefreshTest:user', JSON.stringify(user))
+  
+      setData({ user })
+    }) as EventListener
+
+    const element = document.querySelector('#root')
+
+    element?.addEventListener('authRefresh', authRefreshHandler)
+
+    return () => {
+      element?.removeEventListener('authRefresh', authRefreshHandler)
+    }
+  }, [])
 
   const signIn = useCallback(async (name: string) => {
     const response = await api.post('sessions', { name })
